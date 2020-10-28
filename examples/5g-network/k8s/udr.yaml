@@ -14,10 +14,12 @@ spec:
         app: udr
     spec:
       hostname: udr
+      imagePullSecrets:
+      - name: gcrsecret
       containers:
         - name: udr
-          image: free5gc-compose_free5gc-udr
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-compose_free5gc-udr
+          imagePullPolicy: IfNotPresent
           command: ["./udr", "-udrcfg", "../config/udrcfg.conf"]
           # securityContext:
           #   capabilities:

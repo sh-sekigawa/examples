@@ -14,10 +14,12 @@ spec:
         app: ran
     spec:
       hostname: ran
+       imagePullSecrets:
+      - name: gcrsecret
       containers:
         - name: ran
-          image: free5gc-test:nsm
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-test:nsm
+          imagePullPolicy: IfNotPresent
           command: ["tail", "-f", "/dev/null"]
           securityContext:
             capabilities:

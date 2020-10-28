@@ -14,10 +14,12 @@ spec:
         app: webui
     spec:
       hostname: webui
+      imagePullSecrets:
+      - name: gcrsecret
       containers:
         - name: webui
-          image: free5gc-compose_free5gc-webui
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-compose_free5gc-webui
+          imagePullPolicy: IfNotPresent
           command: ["./webui"]
           # securityContext:
           #   capabilities:

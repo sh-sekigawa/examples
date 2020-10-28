@@ -14,10 +14,12 @@ spec:
         app: smf
     spec:
       hostname: smf
+      imagePullSecrets:
+      - name: gcrsecret
       containers:
         - name: smf
-          image: free5gc-compose_free5gc-smf
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-compose_free5gc-smf
+          imagePullPolicy: IfNotPresent
           command: ['sh', '-c', "until nslookup nrf.default.svc.cluster.local && nslookup upf-pfcp.5g-network.nsm.local && nslookup n4.5g-network.nsm.local && nslookup upf.5g-network.nsm.local; do sleep 2; done; ./smf -smfcfg ../config/smfcfg.conf -uerouting ../config/uerouting.yaml;"]
           # command: ["./smf", "-smfcfg", "../config/smfcfg.conf", "-uerouting", "../config/uerouting.yaml"]
           # securityContext:

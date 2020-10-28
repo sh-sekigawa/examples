@@ -14,10 +14,12 @@ spec:
         app: ausf
     spec:
       hostname: ausf
+      imagePullSecrets:
+      - name: gcrsecret
       containers:
         - name: ausf
-          image: free5gc-compose_free5gc-ausf
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-compose_free5gc-ausf
+          imagePullPolicy: IfNotPresent
           command: ["./ausf", "-ausfcfg", "../config/ausfcfg.conf"]
           # securityContext:
           #   capabilities:

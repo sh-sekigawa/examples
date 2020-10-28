@@ -14,10 +14,12 @@ spec:
         app: pcf
     spec:
       hostname: pcf
+      imagePullSecrets:
+      - name: gcrsecret
       containers:
         - name: pcf
-          image: free5gc-compose_free5gc-pcf
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-compose_free5gc-pcf
+          imagePullPolicy: IfNotPresent
           command: ["./pcf", "-pcfcfg", "../config/pcfcfg.conf"]
           # securityContext:
           #   capabilities:

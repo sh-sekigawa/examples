@@ -15,11 +15,13 @@ spec:
         app: amf
     spec:
       hostname: amf
+      imagePullSecrets:
+      - name: gcrsecret
       serviceAccount: nsm-acc
       containers:
         - name: amf
-          image: free5gc-compose_free5gc-amf
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-compose_free5gc-amf
+          imagePullPolicy: IfNotPresent
           command: ['sh', '-c', "until nslookup amf.5g-network.nsm.local; do echo waiting for myservice; sleep 2; done; ./amf -amfcfg ../config/amfcfg.conf"]
           # securityContext:
           #   capabilities:

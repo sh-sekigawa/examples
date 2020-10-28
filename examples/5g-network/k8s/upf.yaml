@@ -16,10 +16,12 @@ spec:
     spec:
       hostname: upf
       serviceAccount: nsm-acc
+      imagePullSecrets:
+      - name: gcrsecret
       containers:
         - name: upf
-          image: free5gc-compose_free5gc-upf-b
-          imagePullPolicy: Never
+          image: gcr.io/architecturecloudnative/free5gc-compose_free5gc-upf-b
+          imagePullPolicy: IfNotPresent
           command: ['sh', '-c', "until nslookup upf.5g-network.nsm.local && nslookup upf-pfcp.5g-network.nsm.local; do echo waiting for upf; sleep 2; done; ./upf-nat.sh && ./free5gc-upfd -f ../config/upfcfg.yaml"]
           securityContext:
             capabilities:
