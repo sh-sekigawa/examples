@@ -15,7 +15,7 @@ spec:
     spec:
       hostname: ran
        imagePullSecrets:
-      - name: gcrsecret
+       - name: gcrsecret
       containers:
         - name: ran
           image: gcr.io/architecturecloudnative/free5gc-test:nsm
