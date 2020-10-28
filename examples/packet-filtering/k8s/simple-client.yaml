@@ -13,6 +13,7 @@ spec:
         networkservicemesh.io/app: "simple-client"
         networkservicemesh.io/impl: "packet-filtering"
     spec:
+      serviceAccount: nsm-acc
       containers:
         - name: alpine-img
           image: alpine:latest

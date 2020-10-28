@@ -1,6 +1,6 @@
 FROM golang:alpine as build
 RUN apk --no-cache add git
-ENV PACKAGEPATH=github.com/networkservicemesh/networkservicemesh/
+ENV PACKAGEPATH=github.com/sh-sekigawa/networkservicemesh/
 ENV GO111MODULE=on
 
 RUN mkdir /root/networkservicemesh

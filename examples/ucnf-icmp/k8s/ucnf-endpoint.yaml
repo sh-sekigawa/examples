@@ -13,6 +13,7 @@ spec:
         networkservicemesh.io/app: "icmp-responder"
         networkservicemesh.io/impl: "ucnf-endpoint"
     spec:
+      serviceAccount: nsm-acc
       containers:
         - name: universal-cnf-endpoint
           image: networkservicemesh/universal-cnf-vppagent:latest

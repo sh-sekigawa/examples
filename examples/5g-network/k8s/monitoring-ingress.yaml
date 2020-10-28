@@ -1,0 +1,34 @@
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-jaeger
+  annotations:
+    # use the shared ingress-nginx
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /jaeger
+        backend:
+          serviceName: jaeger
+          servicePort: 16686
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-skydive
+  annotations:
+    # use the shared ingress-nginx
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /skydive
+        backend:
+          serviceName: skydive-analyzer
+          servicePort: 8082

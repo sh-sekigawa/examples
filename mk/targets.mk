@@ -39,6 +39,7 @@ $(PREFIX)-$(NAME)-deploy: $(PREFIX)-$(NAME)-delete $(addsuffix -deploy,$(addpref
 .PHONY: $(PREFIX)-$(NAME)-%-deploy
 $(PREFIX)-$(NAME)-%-deploy:
 	@if [ -d "examples/$(NAME)/$(PREFIX)" ]; then \
+		echo "examples/$(NAME)/$(PREFIX)/\$$*.yaml"; \
 		kubectl apply --wait -f examples/$(NAME)/$(PREFIX)/\$$*.yaml; \
 	fi
 endef

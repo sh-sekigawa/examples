@@ -1,0 +1,114 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "udm"
+      app: udm
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "udm"
+        app: udm
+    spec:
+      hostname: udm
+      containers:
+        - name: udm
+          image: free5gc-compose_free5gc-udm
+          imagePullPolicy: Never
+          command: ["./udm", "-udmcfg", "../config/udmcfg.conf"]
+          # securityContext:
+          #   capabilities:
+          #     add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/udmcfg.conf
+              subPath: udmcfg.conf
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          ports:
+            - containerPort: 29503
+          env:
+            - name: GIN_MODE
+              value: release
+      initContainers:
+        - name: init-wait-nrf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup nrf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        - name: init-wait-udr
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup udr.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+      volumes:
+        - name: config
+          configMap:
+            name: udm-config
+        - name: free5gc-config
+          configMap:
+            name: free5gc-config
+metadata:
+  name: "udm"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: udm-config
+  namespace: default
+data:
+  udmcfg.conf: |
+    info:
+      version: 1.0.0
+      description: UDM initial local configuration
+
+    configuration:
+      serviceNameList:
+        - nudm-sdm
+        - nudm-uecm
+        - nudm-ueau
+        - nudm-ee
+        - nudm-pp
+      sbi:
+        scheme: http
+        registerIPv4: udm.default.svc.cluster.local # IP used to register to NRF
+        bindingIPv4: udm # IP used to bind the service
+        port: 29503
+        tls:
+          log: gofree5gc/udmsslkey.log
+          pem: gofree5gc/support/TLS/udm.pem
+          key: gofree5gc/support/TLS/udm.key
+
+      udrclient:
+        scheme: http
+        ipv4Addr: udr.default.svc.cluster.local
+        port: 29504
+
+      nrfclient:
+        scheme: http
+        ipv4Addr: nrf.default.svc.cluster.local
+        port: 29510
+      nrfUri: http://nrf.default.svc.cluster.local:29510
+
+      # test data set from TS33501-f60 Annex C.4
+      # udmProfileAHNPublicKey: 5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650
+      # udmProfileAHNPrivateKey: c53c22208b61860b06c62e5406a7b330c2b577aa5558981510d128247d38bd1d
+      # udmProfileBHNPublicKey: 0472DA71976234CE833A6907425867B82E074D44EF907DFB4B3E21C1C2256EBCD15A7DED52FCBB097A4ED250E036C7B9C8C7004C4EEDC4F068CD7BF8D3F900E3B4
+      # udmProfileBHNPrivateKey: F1AB1074477EBCC7F554EA1C5FC368B1616730155E0041AC447D6301975FECDA
+      keys:
+        udmProfileAHNPublicKey: 5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650
+        udmProfileAHNPrivateKey: c53c22208b61860b06c62e5406a7b330c2b577aa5558981510d128247d38bd1d
+        udmProfileBHNPublicKey: 0472DA71976234CE833A6907425867B82E074D44EF907DFB4B3E21C1C2256EBCD15A7DED52FCBB097A4ED250E036C7B9C8C7004C4EEDC4F068CD7BF8D3F900E3B4
+        udmProfileBHNPrivateKey: F1AB1074477EBCC7F554EA1C5FC368B1616730155E0041AC447D6301975FECDA
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: udm
+spec:
+  selector:
+    app: udm
+  clusterIP: None

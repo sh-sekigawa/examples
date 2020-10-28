@@ -1,0 +1,159 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "n3iwf"
+      app: n3iwf
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "n3iwf"
+        app: n3iwf
+    spec:
+      hostname: n3iwf
+      subdomain: free5gc
+      containers:
+        - name: n3iwf
+          image: free5gc-compose_free5gc-n3iwf
+          imagePullPolicy: Never
+          command: ["/bin/sh", "-c"]
+          args: ["./n3iwf-ipsec.sh && ./n3iwf -n3iwfcfg ../config/n3iwfcfg.conf"]
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/n3iwfcfg.conf
+              subPath: n3iwfcfg.conf
+            - name: startup-script
+              mountPath: /free5gc/n3iwf/n3iwf-ipsec.sh
+              subPath: n3iwf-ipsec.sh
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          env:
+            - name: GIN_MODE
+              value: release
+      initContainers:
+        - name: init-wait-amf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup amf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        - name: init-wait-smf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup smf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        - name: init-wait-upf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup upf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        # - name: init-wait-upf2
+        #   image: busybox:1.28
+        #   command: ['sh', '-c', "until nslookup upf2.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        # - name: init-wait-upfb
+        #   image: busybox:1.28
+        #   command: ['sh', '-c', "until nslookup upfb.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+      volumes:
+        - name: config
+          configMap:
+            name: n3iwf-config
+        - name: startup-script
+          configMap:
+            name: n3iwf-startup
+            defaultMode: 0777
+        - name: free5gc-config
+          configMap:
+            name: free5gc-config
+metadata:
+  name: "n3iwf"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n3iwf-config
+  namespace: default
+data:
+  n3iwfcfg.conf: |
+    info:
+      version: 1.0.0
+      description: N3IWF initial local configuration
+
+    configuration:
+      N3IWFInformation:
+        GlobalN3IWFID:
+          PLMNID:
+            MCC: 208
+            MNC: 93
+          N3IWFID: 135
+        Name:
+          free5GC_N3IWF
+        SupportedTAList:
+          - TAC: 1
+            BroadcastPLMNList:
+              - PLMNID:
+                  MCC: 208
+                  MNC: 93
+                TAISliceSupportList:
+                  - SNSSAI:
+                      SST: 1
+                      SD: 010203
+                  - SNSSAI:
+                      SST: 1
+                      SD: 112233
+      AMFSCTPAddresses:
+        - IP:
+          - amf.default.svc.cluster.local
+
+      # Bind Interfaces
+      # IKE interface
+      IKEBindAddress: n3iwf
+      # IPSec virtual interface
+      IPSecInterfaceAddress: 10.0.0.1
+      # IPSec virtual interface mark
+      IPSecInterfaceMark: 5
+      # GTP interface
+      GTPBindAddress: n3iwf
+
+      # NAS TCP Listen Port
+      NASTCPPort: 20000
+
+      # N3IWF FQDN
+      FQDN: n3iwf.default.svc.cluster.local
+
+      # Security
+      # Private Key File Path
+      PrivateKey:
+      # Certificate Authority (CA)
+      CertificateAuthority:
+      # Certificate
+      Certificate:
+
+      # IP address that will be allocated to UE in IPSec tunnel
+      UEIPAddressRange: 10.0.0.0/24
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n3iwf-startup
+  namespace: default
+data:
+  n3iwf-ipsec.sh: |
+    #!/bin/sh
+
+    ### N3iwf IPSec tunnel configuration
+
+    ip l add name ipsec0 type vti local $(hostname -i | awk '{print $1}') remote 0.0.0.0 key 5
+    ip a add 10.0.0.1/24 dev ipsec0
+    ip l set dev ipsec0 up
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: n3iwf
+spec:
+  selector:
+    app: n3iwf
+  clusterIP: None

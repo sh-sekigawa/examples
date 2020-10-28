@@ -1,0 +1,118 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "gateway"
+      networkservicemesh.io/impl: "routing-test"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "gateway"
+        networkservicemesh.io/impl: "routing-test"
+    spec:
+    
+      containers:
+        - name: universal-cnf-endpoint
+          image: networkservicemesh/universal-cnf-vppagent:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TRACER_ENABLED
+              value: "true"
+          resources:
+            limits:
+              networkservicemesh.io/socket: 1
+          volumeMounts:
+            - mountPath: /etc/universal-cnf/config.yaml
+              subPath: config.yaml
+              name: universal-cnf-config-volume
+      volumes:
+        - name: universal-cnf-config-volume
+          configMap:
+            name: universal-cnf-gateway
+metadata:
+  name: gateway
+  namespace: default
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: universal-cnf-gateway
+data:
+  config.yaml: |
+    initactions:
+      - client:
+          name: "routing-test"
+          ifname: "client0"
+          routes: ["10.60.2.0/24"]
+          labels:
+            app: "gateway"
+    endpoints:
+    - name: "routing-test"
+      labels:
+        app: "gateway"
+      ipam:
+        prefixpool: "10.60.2.0/24"
+        routes: ["10.60.1.0/24"]
+      ifname: "endpoint0"
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# spec:
+#   selector:
+#     matchLabels:
+#       networkservicemesh.io/app: "gateway2"
+#       networkservicemesh.io/impl: "routing-test"
+#   replicas: 1
+#   template:
+#     metadata:
+#       labels:
+#         networkservicemesh.io/app: "gateway2"
+#         networkservicemesh.io/impl: "routing-test"
+#     spec:
+    
+#       containers:
+#         - name: universal-cnf-endpoint
+#           image: networkservicemesh/universal-cnf-vppagent:latest
+#           imagePullPolicy: IfNotPresent
+#           env:
+#             - name: TRACER_ENABLED
+#               value: "true"
+#           resources:
+#             limits:
+#               networkservicemesh.io/socket: 1
+#           volumeMounts:
+#             - mountPath: /etc/universal-cnf/config.yaml
+#               subPath: config.yaml
+#               name: universal-cnf-config-volume
+#       volumes:
+#         - name: universal-cnf-config-volume
+#           configMap:
+#             name: universal-cnf-gateway2
+# metadata:
+#   name: gateway2
+#   namespace: default
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: universal-cnf-gateway2
+# data:
+#   config.yaml: |
+#     initactions:
+#       - client:
+#           name: "routing-test"
+#           ifname: "client0"
+#           routes: ["10.60.2.0/24","10.60.3.0/24"]
+#           labels:
+#             app: "gateway2"
+#     endpoints:
+#     - name: "routing-test"
+#       labels:
+#         app: "gateway2"
+#       ipam:
+#         prefixpool: "10.60.2.0/24"
+#         routes: ["10.60.1.0/24"]
+#       ifname: "endpoint0"

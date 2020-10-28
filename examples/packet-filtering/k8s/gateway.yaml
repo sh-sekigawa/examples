@@ -13,6 +13,7 @@ spec:
         networkservicemesh.io/app: "gateway"
         networkservicemesh.io/impl: "packet-filtering"
     spec:
+      serviceAccount: nsm-acc
       containers:
         - name: universal-cnf-endpoint
           image: networkservicemesh/universal-cnf-vppagent:latest
@@ -45,6 +46,12 @@ data:
       - command:
           name: "echo"
           args: ["Do attach the PCI device here and assign it an IP address from 10.60.1.0/24"]
+      - client:
+          name: "packet-filtering"
+          ifname: "client0"
+          routes: ["10.60.2.0/24", "10.60.3.0/24"]
+          labels:
+            app: "gateway"
     endpoints:
     - name: "packet-filtering"
       labels:

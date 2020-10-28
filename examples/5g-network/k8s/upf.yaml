@@ -1,0 +1,169 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "upf"
+      app: upf
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "upf"
+        networkservicemesh.io/impl: "5g-network"
+        app: upf
+    spec:
+      hostname: upf
+      serviceAccount: nsm-acc
+      containers:
+        - name: upf
+          image: free5gc-compose_free5gc-upf-b
+          imagePullPolicy: Never
+          command: ['sh', '-c', "until nslookup upf.5g-network.nsm.local && nslookup upf-pfcp.5g-network.nsm.local; do echo waiting for upf; sleep 2; done; ./upf-nat.sh && ./free5gc-upfd -f ../config/upfcfg.yaml"]
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/upfcfg.yaml
+              subPath: upfcfg.yaml
+            - name: startup-script
+              mountPath: /free5gc/free5gc-upfd/upf-nat.sh 
+              subPath: upf-nat.sh   
+          readinessProbe:
+            exec:
+              command: ['sh', '-c', 'test `ps cax | grep free5gc-upfd | grep -v grep | wc -l` = "1"'] 
+        - name: tcpdump
+          image: corfr/tcpdump
+          args: ["-i", "any", "-w", "/data/dump.pcap", "-U"]
+        - name: sidecar-endpoint
+          image: networkservicemesh/icmp-dns-sidecar-nse:latest
+          command: ["/bin/sidecar-nse", "-dns"]
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENDPOINT_NETWORK_SERVICE
+              value: "5g-network"
+            - name: ENDPOINT_LABELS
+              value: "app=upf"
+            - name: TRACER_ENABLED
+              value: "true"
+            - name: JAEGER_AGENT_HOST
+              value: jaeger.nsm-system
+            - name: JAEGER_AGENT_PORT
+              value: "6831"
+            - name: IP_ADDRESS
+              value: "10.60.2.0/24"
+            - name: DNS_SEARCH_DOMAINS
+              value: "nsm.local"
+          resources:
+            limits:
+              networkservicemesh.io/socket: 1
+        - name: sidecar-endpoint-pfcp
+          image: networkservicemesh/icmp-dns-sidecar-nse:latest
+          command: ["/bin/sidecar-nse", "-dns"]
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENDPOINT_NETWORK_SERVICE
+              value: "5g-network"
+            - name: ENDPOINT_LABELS
+              value: "app=upf-pfcp"
+            - name: TRACER_ENABLED
+              value: "true"
+            - name: JAEGER_AGENT_HOST
+              value: jaeger.nsm-system
+            - name: JAEGER_AGENT_PORT
+              value: "6831"
+            - name: IP_ADDRESS
+              value: "10.60.3.0/24"
+            - name: DNS_SEARCH_DOMAINS
+              value: "nsm.local"
+          resources:
+            limits:
+              networkservicemesh.io/socket: 1
+        - name: coredns
+          image: networkservicemesh/coredns:master
+          imagePullPolicy: IfNotPresent
+          args: ["-conf", "/etc/coredns/Corefile"]
+          volumeMounts:
+          - mountPath: /etc/coredns
+            name: nsm-coredns-volume
+      initContainers:
+        - name: nse-dns-init
+          image: networkservicemesh/icmp-dns-nse-dns-init:latest
+          command: ["/bin/nse-dns-init"]
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: EXTERNAL_DNS_IP
+              value: "10.109.87.173"
+            - name: DNS_SEARCH_DOMAIN
+              value: "nsm.local"
+          volumeMounts:
+          - mountPath: /etc/coredns
+            name: nsm-coredns-volume
+      volumes:
+        - name: nsm-coredns-volume
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: upf-config
+        - name: startup-script
+          configMap:
+            name: upf-startup
+            defaultMode: 0777            
+metadata:
+  name: "upf"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: upf-config
+  namespace: default
+data:
+  upfcfg.yaml: |
+    info:
+      version: 1.0.0
+      description: UPF configuration
+
+    configuration:
+      # debugLevel: panic|fatal|error|warn|info|debug|trace
+      debugLevel: trace
+
+      pfcp:
+        - addr: upf-pfcp.5g-network.nsm.local
+
+      gtpu:
+        - addr: upf.5g-network.nsm.local
+        # [optional] gtpu.name
+        # - name: upf.5gc.nctu.me
+        # [optional] gtpu.ifname
+        # - ifname: gtpif
+
+      dnn_list:
+        - dnn: internet
+          cidr: 60.60.0.0/24
+          # [optional] apn_list[*].natifname
+          # natifname: eth0
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: upf-startup
+  namespace: default
+data:
+  upf-nat.sh: |
+    #!/bin/sh
+    
+    iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE           
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: upf
+spec:
+  selector:
+    app: upf
+  clusterIP: None

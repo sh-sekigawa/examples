@@ -1,0 +1,29 @@
+---
+apiVersion: networkservicemesh.io/v1alpha1
+kind: NetworkService
+metadata:
+  name: 5g-network
+spec:
+  payload: IP
+  matches:
+    - match:
+      sourceSelector:
+        app: n2
+      route:
+        - destination:
+          destinationSelector:
+            app: amf
+    - match:
+      sourceSelector:
+        app: n3
+      route:
+        - destination:
+          destinationSelector:
+            app: upf
+    - match:
+      sourceSelector:
+        app: n4
+      route:
+        - destination:
+          destinationSelector:
+            app: upf-pfcp

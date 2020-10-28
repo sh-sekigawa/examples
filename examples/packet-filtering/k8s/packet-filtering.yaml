@@ -14,6 +14,13 @@ spec:
           destinationSelector:
             app: gateway
     - match:
+      sourceSelector:
+        app: gateway
+      route:
+        - destination:
+          destinationSelector:
+            app: server
+    - match:
       route:
         - destination:
           destinationSelector:

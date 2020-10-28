@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "nrf"
+      app: nrf
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "nrf"
+        app: nrf
+    spec:
+      hostname: nrf
+      containers:
+        - name: nrf
+          image: free5gc-compose_free5gc-nrf
+          imagePullPolicy: Never
+          command: ["./nrf", "-nrfcfg", "../config/nrfcfg.conf"]
+          # securityContext:
+          #   capabilities:
+          #     add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/nrfcfg.conf
+              subPath: nrfcfg.conf
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          ports:
+            - containerPort: 29510
+          env:
+            - name: GIN_MODE
+              value: release
+      volumes:
+        - name: config
+          configMap:
+            name: nrf-config
+        - name: free5gc-config
+          configMap:
+            name: free5gc-config
+      initContainers:
+        - name: init-wait-db
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup db.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+metadata:
+  name: "nrf"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nrf-config
+  namespace: default
+data:
+  nrfcfg.conf: |
+    info:
+      version: 1.0.0
+      description: NRF initial local configuration
+
+    configuration:
+      MongoDBName: "free5gc"
+      MongoDBUrl: "mongodb://db.default.svc.cluster.local:27017"
+      DefaultServiceIP: "nrf.default.svc.cluster.local"
+      sbi:
+        scheme: http
+        ipv4Addr: nrf
+        port: 29510
+      DefaultPlmnId:
+        mcc: "208"
+        mnc: "93"
+      serviceNameList:
+        - nnrf-nfm
+        - nnrf-disc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nrf
+spec:
+  selector:
+    app: nrf
+  clusterIP: None

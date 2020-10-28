@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "udr"
+      app: udr
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "udr"
+        app: udr
+    spec:
+      hostname: udr
+      containers:
+        - name: udr
+          image: free5gc-compose_free5gc-udr
+          imagePullPolicy: Never
+          command: ["./udr", "-udrcfg", "../config/udrcfg.conf"]
+          # securityContext:
+          #   capabilities:
+          #     add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/udrcfg.conf
+              subPath: udrcfg.conf
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          ports:
+            - containerPort: 29504
+          env:
+            - name: GIN_MODE
+              value: release
+      initContainers:
+        - name: init-wait-nrf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup nrf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        - name: init-wait-db
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup db.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+      volumes:
+        - name: config
+          configMap:
+            name: udr-config
+        - name: free5gc-config
+          configMap:
+            name: free5gc-config
+metadata:
+  name: "udr"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: udr-config
+  namespace: default
+data:
+  udrcfg.conf: |
+    info:
+      version: 1.0.0
+      description: UDR initial local configuration
+
+    configuration:
+      sbi:
+        scheme: http
+        registerIPv4: udr.default.svc.cluster.local # IP used to register to NRF
+        bindingIPv4: udr  # IP used to bind the service
+        port: 29504
+      mongodb:
+        name: free5gc
+        url: mongodb://db.default.svc.cluster.local:27017
+      nrfUri: http://nrf.default.svc.cluster.local:29510
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: udr
+spec:
+  selector:
+    app: udr
+  clusterIP: None

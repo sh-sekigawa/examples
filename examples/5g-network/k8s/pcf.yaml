@@ -1,0 +1,92 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "pcf"
+      app: pcf
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "pcf"
+        app: pcf
+    spec:
+      hostname: pcf
+      containers:
+        - name: pcf
+          image: free5gc-compose_free5gc-pcf
+          imagePullPolicy: Never
+          command: ["./pcf", "-pcfcfg", "../config/pcfcfg.conf"]
+          # securityContext:
+          #   capabilities:
+          #     add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/pcfcfg.conf
+              subPath: pcfcfg.conf
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          ports:
+            - containerPort: 29509
+          env:
+            - name: GIN_MODE
+              value: release
+      initContainers:
+        - name: init-wait-nrf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup nrf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+      volumes:
+        - name: config
+          configMap:
+            name: pcf-config
+        - name: free5gc-config
+          configMap:
+            name: free5gc-config
+metadata:
+  name: "pcf"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pcf-config
+  namespace: default
+data:
+  pcfcfg.conf: |
+    info:
+      version: 1.0.0
+      description: PCF initial local configuration
+
+    configuration:
+      pcfName: PCF
+      sbi:
+        scheme: http
+        registerIPv4: pcf.default.svc.cluster.local # IP used to register to NRF
+        bindingIPv4: pcf  # IP used to bind the service
+        port: 29507
+      timeFormat: 2019-01-02 15:04:05
+      defaultBdtRefId: BdtPolicyId-
+      nrfUri: http://nrf.default.svc.cluster.local:29510
+      serviceList:
+        - serviceName: npcf-am-policy-control
+        - serviceName: npcf-smpolicycontrol
+          suppFeat: 3fff
+        - serviceName: npcf-bdtpolicycontrol
+        - serviceName: npcf-policyauthorization
+          suppFeat: 3
+        - serviceName: npcf-eventexposure
+        - serviceName: npcf-ue-policy-control
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pcf
+spec:
+  selector:
+    app: pcf
+  clusterIP: None

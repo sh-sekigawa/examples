@@ -13,6 +13,7 @@ spec:
         networkservicemesh.io/app: "icmp-responder"
         networkservicemesh.io/impl: "simple-endpoint"
     spec:
+      serviceAccount: nsm-acc
       containers:
         - name: sidecar-endpoint
           image: networkservicemesh/proxy-sidecar-nse:latest
@@ -34,4 +35,3 @@ spec:
           command: ["tail", "-f", "/dev/null"]
 metadata:
   name: simple-endpoint
-  namespace: default

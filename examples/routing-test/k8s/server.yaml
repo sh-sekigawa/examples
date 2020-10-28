@@ -1,0 +1,73 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "server"
+      networkservicemesh.io/impl: "routing-test"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "server"
+        networkservicemesh.io/impl: "routing-test"
+    spec:
+      containers:
+        # - name: universal-cnf-endpoint
+        #   image: networkservicemesh/universal-cnf-vppagent:latest
+        #   imagePullPolicy: IfNotPresent
+        #   env:
+        #     - name: TRACER_ENABLED
+        #       value: "true"
+        #   resources:
+        #     limits:
+        #       networkservicemesh.io/socket: 1
+        #   volumeMounts:
+        #     - mountPath: /etc/universal-cnf/config.yaml
+        #       subPath: config.yaml
+        #       name: universal-cnf-config-volume
+        - name: sidecar-endpoint
+          image: networkservicemesh/proxy-sidecar-nse:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENDPOINT_NETWORK_SERVICE
+              value: "routing-test"
+            - name: ENDPOINT_LABELS
+              value: "app=server"
+            - name: TRACER_ENABLED
+              value: "true"
+            - name: IP_ADDRESS
+              value: "10.60.1.0/24"
+          resources:
+            limits:
+              networkservicemesh.io/socket: 1
+        - name: server
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+      volumes:
+        - name: universal-cnf-config-volume
+          configMap:
+            name: universal-cnf-endpoint
+            
+metadata:
+  name: server
+
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: universal-cnf-endpoint
+# data:
+#   config.yaml: |
+#     endpoints:
+#     - name: "routing-test"
+#       labels:
+#         app: "server"
+#       ipam:
+#         prefixpool: "10.60.1.0/24"
+      # ifname: "endpoint0"

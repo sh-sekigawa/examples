@@ -12,6 +12,7 @@ spec:
         app: "topo"
         device: "router5"
     spec:
+      serviceAccount: nsc-acc
       containers:
         - name: sidecar-nsc
           image: networkservicemesh/topology-sidecar-nsc:latest
@@ -32,11 +33,17 @@ spec:
               value: "device=router5"
             - name: TRACER_ENABLED
               value: "true"
+            - name: JAEGER_AGENT_HOST
+              value: jaeger.nsm-system
+            - name: JAEGER_AGENT_PORT
+              value: "6831"              
             - name: IP_ADDRESS
               value: "10.60.5.0/24"
+            - name: NSM_NAMESPACE
+              value: "nsm-system"            
           resources:
             limits:
-              networkservicemesh.io/socket: 1
+              networkservicemesh.io/socket: "1"
         - name: router
           image: networkservicemesh/topology-qrtr:latest
           imagePullPolicy: IfNotPresent
@@ -58,6 +65,7 @@ metadata:
 apiVersion: v1
 metadata:
   name: qrtr-5
+  namespace: default
 data:
   zebra.conf: |
     !

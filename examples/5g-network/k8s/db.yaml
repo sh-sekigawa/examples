@@ -1,0 +1,98 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "db"
+      app: db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "db"
+        app: db
+    spec:
+      hostname: db
+      containers:
+        - name: db
+          image: mongo
+          command: ["mongod"]
+          args: ["--port","27017", "--bind_ip", "0.0.0.0"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/mongod.conf
+              subPath: mongod.conf
+          ports:
+            - containerPort: 27017
+      volumes:
+        - name: config
+          configMap:
+            name: mongo-config
+metadata:
+  name: "db"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-config
+  namespace: default
+data:
+  mongod.conf: |
+    # mongod.conf
+
+    # for documentation of all options, see:
+    #   http://docs.mongodb.org/manual/reference/configuration-options/
+
+    # Where and how to store data.
+    storage:
+      dbPath: /var/lib/mongodb
+      journal:
+        enabled: true
+    #  engine:
+    #  mmapv1:
+    #  wiredTiger:
+
+    # where to write logging data.
+    systemLog:
+      destination: file
+      logAppend: true
+      path: /var/log/mongodb/mongod.log
+
+    # network interfaces
+    net:
+      port: 27017
+      bindIp: [0.0.0.0]
+
+
+    # how the process runs
+    processManagement:
+      timeZoneInfo: /usr/share/zoneinfo
+
+    #security:
+
+    #operationProfiling:
+
+    #replication:
+
+    #sharding:
+
+    ## Enterprise-Only Options:
+
+    #auditLog:
+
+    #snmp:
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector:
+    app: db
+  clusterIP: None

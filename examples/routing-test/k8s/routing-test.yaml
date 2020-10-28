@@ -1,0 +1,27 @@
+---
+apiVersion: networkservicemesh.io/v1alpha1
+kind: NetworkService
+metadata:
+  name: routing-test
+spec:
+  payload: IP
+  matches:
+    - match:
+      sourceSelector:
+        app: gateway
+      route:
+        - destination:
+          destinationSelector:
+            app: server
+    # - match:
+    #   sourceSelector:
+    #     app: gateway2
+    #   route:
+    #     - destination:
+    #       destinationSelector:
+    #         app: server
+    - match:
+      route:
+        - destination:
+          destinationSelector:
+            app: gateway

@@ -12,6 +12,7 @@ spec:
         networkservicemesh.io/app: "ucnf-client"
     spec:
       hostPID: true
+      serviceAccount: nsm-acc
       containers:
         - name: universal-cnf-client
           image: networkservicemesh/universal-cnf-vppagent:latest

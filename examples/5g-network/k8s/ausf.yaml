@@ -1,0 +1,88 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "ausf"
+      app: ausf
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "ausf"
+        app: ausf
+    spec:
+      hostname: ausf
+      containers:
+        - name: ausf
+          image: free5gc-compose_free5gc-ausf
+          imagePullPolicy: Never
+          command: ["./ausf", "-ausfcfg", "../config/ausfcfg.conf"]
+          # securityContext:
+          #   capabilities:
+          #     add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/ausfcfg.conf
+              subPath: ausfcfg.conf
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          ports:
+            - containerPort: 29509
+          env:
+            - name: GIN_MODE
+              value: release
+      initContainers:
+        - name: init-wait-nrf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup nrf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+      volumes:
+        - name: config
+          configMap:
+            name: ausf-config
+        - name: free5gc-config
+          configMap:
+            name: free5gc-config
+metadata:
+  name: "ausf"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ausf-config
+  namespace: default
+data:
+  ausfcfg.conf: |
+    info:
+      version: 1.0.0
+      description: AUSF initial local configuration
+
+    configuration:
+      sbi:
+        scheme: http
+        registerIPv4: ausf.default.svc.cluster.local # IP used to register to NRF
+        bindingIPv4: ausf  # IP used to bind the service
+        port: 29509
+      serviceNameList:
+        - nausf-auth
+      nrfUri: http://nrf.default.svc.cluster.local:29510
+      plmnSupportList:
+        - mcc: 208
+          mnc: 93
+        - mcc: 123
+          mnc: 45
+      groupId: ausfGroup001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ausf
+spec:
+  selector:
+    app: ausf
+  clusterIP: None

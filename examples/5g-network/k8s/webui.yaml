@@ -1,0 +1,96 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "webui"
+      app: webui
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "webui"
+        app: webui
+    spec:
+      hostname: webui
+      containers:
+        - name: webui
+          image: free5gc-compose_free5gc-webui
+          imagePullPolicy: Never
+          command: ["./webui"]
+          # securityContext:
+          #   capabilities:
+          #     add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/webuicfg.conf
+              subPath: webuicfg.conf
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          ports:
+            - containerPort: 5000
+          env:
+            - name: GIN_MODE
+              value: release
+      initContainers:
+        - name: init-wait-db
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup db.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+      volumes:
+        - name: config
+          configMap:
+            name: webui-config
+        - name: free5gc-config
+          configMap:
+            name: free5gc-config
+metadata:
+  name: "webui"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webui-config
+  namespace: default
+data:
+  webuicfg.conf: |
+    info:
+      version: 1.0.0
+      description: Docker-WebUI initial local configuration
+
+    configuration:
+      mongodb:
+        name: free5gc
+        url: mongodb://db.default.svc.cluster.local:27017
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webui
+spec:
+  selector:
+    app: webui
+  ports:
+    - port: 8080
+      targetPort: 5000
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-webui
+  annotations:
+    # use the shared ingress-nginx
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /webui
+        backend:
+          serviceName: webui
+          servicePort: 8080

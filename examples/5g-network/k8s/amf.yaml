@@ -1,0 +1,169 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  selector:
+    matchLabels:
+      networkservicemesh.io/app: "amf"
+      app: amf
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        networkservicemesh.io/app: "amf"
+        networkservicemesh.io/impl: "5g-network"
+        app: amf
+    spec:
+      hostname: amf
+      serviceAccount: nsm-acc
+      containers:
+        - name: amf
+          image: free5gc-compose_free5gc-amf
+          imagePullPolicy: Never
+          command: ['sh', '-c', "until nslookup amf.5g-network.nsm.local; do echo waiting for myservice; sleep 2; done; ./amf -amfcfg ../config/amfcfg.conf"]
+          # securityContext:
+          #   capabilities:
+          #     add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /free5gc/config/amfcfg.conf
+              subPath: amfcfg.conf
+            - name: free5gc-config
+              mountPath: /free5gc/config/free5GC.conf
+              subPath: free5GC.conf
+          env:
+            - name: GIN_MODE
+              value: release
+        - name: sidecar-endpoint
+          image: networkservicemesh/icmp-dns-sidecar-nse:latest
+          command: ["/bin/sidecar-nse", "-dns"]
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENDPOINT_NETWORK_SERVICE
+              value: "5g-network"
+            - name: ENDPOINT_LABELS
+              value: "app=amf"
+            - name: TRACER_ENABLED
+              value: "true"
+            - name: JAEGER_AGENT_HOST
+              value: jaeger.nsm-system
+            - name: JAEGER_AGENT_PORT
+              value: "6831"
+            - name: IP_ADDRESS
+              value: "10.60.1.0/24"
+            - name: DNS_SEARCH_DOMAINS
+              value: "nsm.local"
+          resources:
+            limits:
+              networkservicemesh.io/socket: 1
+        - name: coredns
+          image: networkservicemesh/coredns:master
+          imagePullPolicy: IfNotPresent
+          args: ["-conf", "/etc/coredns/Corefile"]
+          volumeMounts:
+          - mountPath: /etc/coredns
+            name: nsm-coredns-volume
+        # - name: tcpdump
+        #   image: corfr/tcpdump
+        #   args: ["-i", "any", "-w", "/data/dump.pcap"]
+      initContainers:
+        - name: init-wait-nrf
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup nrf.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        - name: nse-dns-init
+          image: networkservicemesh/icmp-dns-nse-dns-init:latest
+          command: ["/bin/nse-dns-init"]
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: EXTERNAL_DNS_IP
+              value: "10.109.87.173"
+            - name: DNS_SEARCH_DOMAIN
+              value: "nsm.local"
+          volumeMounts:
+          - mountPath: /etc/coredns
+            name: nsm-coredns-volume
+      volumes:
+      - name: nsm-coredns-volume
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: amf-config
+      - name: free5gc-config
+        configMap:
+          name: free5gc-config
+metadata:
+  name: "amf"
+  namespace: default
+  # annotations:
+  #   ns.networkservicemesh.io: 4g-network?app=s6a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: amf-config
+  namespace: default
+data:
+  amfcfg.conf: |
+    info:
+      version: 1.0.0
+      description: AMF initial local configuration
+
+    configuration:
+      amfName: AMF
+      ngapIpList:
+        - amf.5g-network.nsm.local
+      sbi:
+        scheme: http
+        registerIPv4: amf.default.svc.cluster.local # IP used to register to NRF
+        bindingIPv4: amf  # IP used to bind the service
+        port: 29518
+      serviceNameList:
+        - namf-comm
+        - namf-evts
+        - namf-mt
+        - namf-loc
+      servedGuamiList:
+        - plmnId:
+            mcc: 208
+            mnc: 93
+          amfId: cafe00
+      supportTaiList:
+        - plmnId:
+            mcc: 208
+            mnc: 93
+          tac: 1
+      plmnSupportList:
+        - plmnId:
+            mcc: 208
+            mnc: 93
+          snssaiList:
+            - sst: 1
+              sd: 010203
+            - sst: 1
+              sd: 112233
+      supportDnnList:
+        - internet
+      nrfUri: http://nrf.default.svc.cluster.local:29510
+      security:
+        integrityOrder:
+          - NIA2
+          - NIA0
+        cipheringOrder:
+          - NEA2
+          - NEA0
+      networkName:
+        full: free5GC
+        short: free
+      t3502: 720
+      t3512: 3600
+      non3gppDeregistrationTimer: 3240
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: amf
+spec:
+  selector:
+    app: amf
+  clusterIP: None
+        
